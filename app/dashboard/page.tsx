@@ -10,9 +10,11 @@ export default function Dashboard() {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
 
-  // ✅ FIXED AUTH CHECK
   useEffect(() => {
-    const init = async () => {
+    let channel: any;
+
+    async function init() {
+      // 🔐 Auth check
       const { data } = await supabase.auth.getSession();
 
       if (!data.session) {
@@ -20,24 +22,38 @@ export default function Dashboard() {
         return;
       }
 
-      load();
-    };
+      // initial load
+      await load();
+
+      // get user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      // realtime listener
+      channel = supabase
+        .channel("bookmarks")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "bookmarks",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => load()
+        )
+        .subscribe();
+    }
 
     init();
 
-    const channel = supabase
-      .channel("bookmarks")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookmarks" },
-        () => load()
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [router]);
 
   async function load() {
     const { data } = await supabase
@@ -55,19 +71,36 @@ export default function Dashboard() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    await supabase.from("bookmarks").insert({
-      title,
-      url,
-      user_id: user!.id,
-    });
+    const { data } = await supabase
+      .from("bookmarks")
+      .insert({
+        title,
+        url,
+        user_id: user!.id,
+      })
+      .select()
+      .single();
+
+    // ⚡ instant UI update
+    if (data) {
+      setBookmarks((prev) => [data, ...prev]);
+    }
 
     setTitle("");
     setUrl("");
   }
 
-  async function remove(id: string) {
-    await supabase.from("bookmarks").delete().eq("id", id);
-  }
+//   async function remove(id: string) {
+//     await supabase.from("bookmarks").delete().eq("id", id);
+//   }
+
+async function remove(id: string) {
+  await supabase.from("bookmarks").delete().eq("id", id);
+
+  // ⚡ instantly remove from UI
+  setBookmarks((prev) => prev.filter((b) => b.id !== id));
+}
+
 
   async function logout() {
     await supabase.auth.signOut();
