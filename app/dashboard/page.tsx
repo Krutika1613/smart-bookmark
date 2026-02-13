@@ -10,35 +10,33 @@ export default function Dashboard() {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
+useEffect(() => {
+  const init = async () => {
+    const { data } = await supabase.auth.getSession();
 
-  useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      router.replace("/");
+      return;
+    }
 
-      if (!data.session) {
-        router.replace("/");
-        return;
-      }
+    load();
+  };
 
-      await load();
-      setLoading(false);
-    };
+  init();
 
-    init();
+  const channel = supabase
+    .channel("bookmarks")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "bookmarks" },
+      () => load()
+    )
+    .subscribe();
 
-    const channel = supabase
-      .channel("bookmarks")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookmarks" },
-        () => load()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   async function load() {
     const {
