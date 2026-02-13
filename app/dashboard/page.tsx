@@ -9,39 +9,37 @@ export default function Dashboard() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  //  FIX LOGIN + REALTIME
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.push("/");
-      } else {
-        load();
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        router.replace("/");
+        return;
       }
-    });
+
+      await load();
+      setLoading(false);
+    };
+
+    init();
 
     const channel = supabase
       .channel("bookmarks")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bookmarks",
-        },
+        { event: "*", schema: "public", table: "bookmarks" },
         () => load()
       )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // ✅ LOAD ONLY CURRENT USER BOOKMARKS
   async function load() {
     const {
       data: { user },
@@ -58,7 +56,6 @@ export default function Dashboard() {
     setBookmarks(data || []);
   }
 
-  // ✅ INSTANT ADD
   async function add() {
     if (!title || !url) return;
 
@@ -76,15 +73,12 @@ export default function Dashboard() {
       .select()
       .single();
 
-    if (data) {
-      setBookmarks((prev) => [data, ...prev]);
-    }
+    if (data) setBookmarks((prev) => [data, ...prev]);
 
     setTitle("");
     setUrl("");
   }
 
-  // ✅ INSTANT DELETE
   async function remove(id: string) {
     await supabase.from("bookmarks").delete().eq("id", id);
 
@@ -93,8 +87,10 @@ export default function Dashboard() {
 
   async function logout() {
     await supabase.auth.signOut();
-    router.push("/");
+    router.replace("/");
   }
+
+  if (loading) return null;
 
   return (
     <div
@@ -132,7 +128,7 @@ export default function Dashboard() {
 
         <button
           onClick={add}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded"
+          className="w-full bg-indigo-600 text-white py-2 rounded"
         >
           Add Bookmark
         </button>
@@ -151,7 +147,7 @@ export default function Dashboard() {
                 {b.title}
               </a>
 
-              <button onClick={() => remove(b.id)}>DELETE</button>
+              <button onClick={() => remove(b.id)}>Delete</button>
             </div>
           ))}
         </div>
