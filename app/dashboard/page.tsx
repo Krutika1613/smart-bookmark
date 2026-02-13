@@ -10,60 +10,55 @@ export default function Dashboard() {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
 
+  //  FIX LOGIN + REALTIME
   useEffect(() => {
-    let channel: any;
-
-    async function init() {
-      // 🔐 Auth check
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session) {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
         router.push("/");
-        return;
+      } else {
+        load();
       }
+    });
 
-      // initial load
-      await load();
-
-      // get user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      // realtime listener
-      channel = supabase
-        .channel("bookmarks")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "bookmarks",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => load()
-        )
-        .subscribe();
-    }
-
-    init();
+    const channel = supabase
+      .channel("bookmarks")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookmarks",
+        },
+        () => load()
+      )
+      .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [router]);
+  }, []);
 
+  // ✅ LOAD ONLY CURRENT USER BOOKMARKS
   async function load() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
     const { data } = await supabase
       .from("bookmarks")
       .select()
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     setBookmarks(data || []);
   }
 
+  // ✅ INSTANT ADD
   async function add() {
     if (!title || !url) return;
 
@@ -81,7 +76,6 @@ export default function Dashboard() {
       .select()
       .single();
 
-    // ⚡ instant UI update
     if (data) {
       setBookmarks((prev) => [data, ...prev]);
     }
@@ -90,17 +84,12 @@ export default function Dashboard() {
     setUrl("");
   }
 
-//   async function remove(id: string) {
-//     await supabase.from("bookmarks").delete().eq("id", id);
-//   }
+  // ✅ INSTANT DELETE
+  async function remove(id: string) {
+    await supabase.from("bookmarks").delete().eq("id", id);
 
-async function remove(id: string) {
-  await supabase.from("bookmarks").delete().eq("id", id);
-
-  // ⚡ instantly remove from UI
-  setBookmarks((prev) => prev.filter((b) => b.id !== id));
-}
-
+    setBookmarks((prev) => prev.filter((b) => b.id !== id));
+  }
 
   async function logout() {
     await supabase.auth.signOut();
@@ -162,7 +151,7 @@ async function remove(id: string) {
                 {b.title}
               </a>
 
-              <button onClick={() => remove(b.id)}>❌</button>
+              <button onClick={() => remove(b.id)}>DELETE</button>
             </div>
           ))}
         </div>
