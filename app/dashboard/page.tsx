@@ -1,14 +1,29 @@
 "use client";
+
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function Dashboard() {
+  const router = useRouter();
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
 
+  // ✅ FIXED AUTH CHECK
   useEffect(() => {
-    load();
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        router.push("/");
+        return;
+      }
+
+      load();
+    };
+
+    init();
 
     const channel = supabase
       .channel("bookmarks")
@@ -43,7 +58,7 @@ export default function Dashboard() {
     await supabase.from("bookmarks").insert({
       title,
       url,
-      user_id: user?.id,
+      user_id: user!.id,
     });
 
     setTitle("");
@@ -56,7 +71,7 @@ export default function Dashboard() {
 
   async function logout() {
     await supabase.auth.signOut();
-    location.href = "/";
+    router.push("/");
   }
 
   return (
@@ -64,15 +79,16 @@ export default function Dashboard() {
       className="min-h-screen bg-cover bg-center flex items-center justify-center"
       style={{
         backgroundImage:
-          "url('https://images.unsplash.com/photo-1524995997946-a1c2e315a42f')",
+          "url('https://images.unsplash.com/photo-1507842217343-583bb7270b66')",
       }}
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/50"></div>
+      <div className="absolute inset-0 bg-black/60"></div>
 
-      <div className="relative max-w-xl w-full bg-white rounded-xl shadow-xl p-6 mx-4">
+      <div className="relative max-w-xl w-full bg-white/95 rounded-xl shadow-xl p-6 mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Smart Bookmark</h1>
+          <h1 className="text-2xl font-bold text-indigo-700">
+            Smart Bookmark
+          </h1>
           <button onClick={logout} className="text-sm text-red-500">
             Logout
           </button>
@@ -80,21 +96,21 @@ export default function Dashboard() {
 
         <input
           className="border p-2 w-full mb-2 rounded"
-          placeholder="Title"
+          placeholder="Bookmark title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
 
         <input
-          className="border p-2 w-full mb-2 rounded"
-          placeholder="URL"
+          className="border p-2 w-full mb-3 rounded"
+          placeholder="https://example.com"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
 
         <button
           onClick={add}
-          className="w-full bg-indigo-600 text-white py-2 rounded"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded"
         >
           Add Bookmark
         </button>
@@ -108,7 +124,7 @@ export default function Dashboard() {
               <a
                 href={b.url}
                 target="_blank"
-                className="text-indigo-600"
+                className="text-indigo-600 underline"
               >
                 {b.title}
               </a>
