@@ -9,34 +9,34 @@ export default function Dashboard() {
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState(true);
-useEffect(() => {
-  const init = async () => {
-    const { data } = await supabase.auth.getSession();
 
-    if (!data.session) {
-      router.replace("/");
-      return;
-    }
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
 
-    load();
-  };
+      if (!data.session) {
+        router.replace("/");
+        return;
+      }
 
-  init();
+      await load();
+    };
 
-  const channel = supabase
-    .channel("bookmarks")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "bookmarks" },
-      () => load()
-    )
-    .subscribe();
+    init();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+    const channel = supabase
+      .channel("bookmarks")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookmarks" },
+        () => load()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function load() {
     const {
@@ -88,8 +88,6 @@ useEffect(() => {
     router.replace("/");
   }
 
-  if (loading) return null;
-
   return (
     <div
       className="min-h-screen bg-cover bg-center flex items-center justify-center"
@@ -98,6 +96,7 @@ useEffect(() => {
           "url('https://images.unsplash.com/photo-1507842217343-583bb7270b66')",
       }}
     >
+      {/* dark overlay */}
       <div className="absolute inset-0 bg-black/60"></div>
 
       <div className="relative max-w-xl w-full bg-white/95 rounded-xl shadow-xl p-6 mx-4">
@@ -105,6 +104,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold text-indigo-700">
             Smart Bookmark
           </h1>
+
           <button onClick={logout} className="text-sm text-red-500">
             Logout
           </button>
@@ -126,7 +126,7 @@ useEffect(() => {
 
         <button
           onClick={add}
-          className="w-full bg-indigo-600 text-white py-2 rounded"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded"
         >
           Add Bookmark
         </button>
@@ -145,7 +145,7 @@ useEffect(() => {
                 {b.title}
               </a>
 
-              <button onClick={() => remove(b.id)}>Delete</button>
+              <button onClick={() => remove(b.id)}>❌</button>
             </div>
           ))}
         </div>
