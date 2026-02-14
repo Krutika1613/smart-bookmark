@@ -41,14 +41,16 @@ export default function Dashboard() {
   .on(
     "postgres_changes",
     { event: "INSERT", schema: "public", table: "bookmarks" },
-    () => load()
+    //() => load()
+    payload => setBookmarks(prev => [payload.new as any, ...prev])
   )
 
   // listen to DELETES
   .on(
     "postgres_changes",
     { event: "DELETE", schema: "public", table: "bookmarks" },
-    () => load()
+    //() => load()
+    payload => setBookmarks(prev => prev.filter(b => b.id !== payload.old.id))
   )
 
   .subscribe();
