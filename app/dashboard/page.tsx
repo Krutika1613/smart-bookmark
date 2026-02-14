@@ -24,14 +24,35 @@ export default function Dashboard() {
 
     init();
 
+    // const channel = supabase
+    //   .channel("bookmarks")
+    //   .on(
+    //     "postgres_changes",
+    //     { event: "*", schema: "public", table: "bookmarks" },
+    //     () => load()
+    //   )
+    //   .subscribe();
+
+
     const channel = supabase
-      .channel("bookmarks")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookmarks" },
-        () => load()
-      )
-      .subscribe();
+  .channel("bookmarks")
+
+  // listen to NEW bookmarks
+  .on(
+    "postgres_changes",
+    { event: "INSERT", schema: "public", table: "bookmarks" },
+    () => load()
+  )
+
+  // listen to DELETES
+  .on(
+    "postgres_changes",
+    { event: "DELETE", schema: "public", table: "bookmarks" },
+    () => load()
+  )
+
+  .subscribe();
+
 
     return () => {
       supabase.removeChannel(channel);
